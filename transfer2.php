@@ -21,7 +21,7 @@ $result = $extdb->query($sql);
 if ($result && $result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
         $shortname = trim($row['coursename']);
-        $url = 'https://shravanam.online/images/training/'.rawurlencode(trim($row['cover']));
+        $url = 'https://site/images/training/'.rawurlencode(trim($row['cover']));
 
         // Получаем курс по shortname
         $course = $DB->get_record('course', ['fullname' => $shortname]);
