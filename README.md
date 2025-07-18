@@ -1,5 +1,5 @@
 # moodle-import_from_schoolmaster
-Набор скриптов для переноса данных их SchoolMaster в Moodle
+Набор скриптов для переноса данных их SchoolMaster в Moodle.
 
 Запускаются по очереди, тредуют некоторой ручной настройки.
 
