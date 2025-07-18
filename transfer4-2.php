@@ -9,6 +9,7 @@ require_once($CFG->dirroot.'/course/modlib.php');
 require_once($CFG->dirroot.'/mod/page/lib.php');
 require_once($CFG->dirroot . '/mod/assign/lib.php');
 require_once($CFG->libdir . '/gradelib.php');
+require_once($CFG->dirroot . '/mod/quiz/lib.php');
 
 use core_course\external\course_module_create;
 
@@ -38,6 +39,8 @@ if (!$result) {
 }
 
 $addedSections = 0;
+
+### Stage1: читаем все курсы
 
 while ($row = $result->fetch_assoc()) {
 
@@ -105,6 +108,8 @@ course_update_section($course, $section, $sectiondata);
     }
 
 }
+
+### Stage1: читаем все уроки
 
 if($lessonid){
 
@@ -198,6 +203,7 @@ $DB->update_record('page', $page);
 
 }
 
+### Stage3: читаем все домашки
 
 $sql="
  select * from dxg_training_task
@@ -258,6 +264,7 @@ $moduleinfo->hidegrader = 1;
 $moduleinfo->completion = COMPLETION_TRACKING_AUTOMATIC; // Автоматическое отслеживание
 $moduleinfo->completionsubmit = 1;  // Требуется отправка работы для выполнения
 $moduleinfo->completionpass = 0;        // Требуется проход (0 - не обязательно)
+$moduleinfo->groupmode = 0; // 0 — нет, 1 — отдельные группы, 2 — видимые группы
 
 // Создание модуля
 $moduleinfo = (array)$moduleinfo;
@@ -266,16 +273,80 @@ $moduleinfo['type'] = 'assign';
 
 \core\session\manager::set_user(get_admin());
 $moduleinfo = create_module((object)$moduleinfo);
+
+cli_writeln("Задание '{$lessonname}' успешно создано в курсе с ID {$course->id}.");
+
+}
+
+### Stage4: читаем все тесты
+
+$sql="
+SELECT * FROM dxg_training_questions where test_id=$lessonid
+";
+$qs = $externalDB->query($sql);
+
+if (!$qs) {
+    die("Ошибка запроса: " . $externalDB->error);
+}
+
+if($qs->num_rows){
+
+// === Добавляем модуль в курс ===
+$moduleinfo = new stdClass();
+$moduleinfo->modulename = 'quiz';
+$moduleinfo->module = $DB->get_field('modules', 'id', ['name' => 'quiz'], MUST_EXIST);
+$moduleinfo->section = $section->section ?? $existingsection->sectionnum;;
+$moduleinfo->visible = 1;
+$moduleinfo->visibleoncoursepage = 1;
+$moduleinfo->course = $course->id;
+$moduleinfo->name = $lessonname;
+$moduleinfo->introeditor = [
+    'text' => '',
+    'format' => FORMAT_HTML,
+    'itemid' => 0 // можно оставить 0, если не используешь файловый менеджер
+];
+$moduleinfo->timeopen = 0;
+$moduleinfo->timeclose = 0;
+$moduleinfo->timelimit = 0;
+$moduleinfo->grade = 100;
+$moduleinfo->gradepass = 100;
+$moduleinfo->attempts = 0;
+$moduleinfo->completion = 1;
+
+$moduleinfo->overduehandling = 'autoabandon';
+$moduleinfo->grademethod = 1;
+$moduleinfo->sumgrades = 100; // будет пересчитано
+$moduleinfo->preferredbehaviour = 'deferredfeedback';
+$moduleinfo->shuffleanswers = 1;
+$moduleinfo->questionsperpage = 1;
+$moduleinfo->quizpassword = '';
+$moduleinfo->browsersecurity = '-';
+$moduleinfo->attemptonlast = 1;
+$moduleinfo->showuserpicture = 1;
+$moduleinfo->completion = COMPLETION_TRACKING_AUTOMATIC; // Автоматическое отслеживание
+$moduleinfo->completionusegrade = 1; // Учитывать оценку для выполнения
+$moduleinfo->completionpass = 1;
+$moduleinfo->completionpassgrade = 1;
+$moduleinfo->groupmode = 0; // 0 — нет, 1 — отдельные группы, 2 — видимые группы
+
+// === Добавляем с помощью course module API ===
+$moduleinfo = create_module($moduleinfo);
+
+
+foreach($qs as $q){
+
+//echo serialize($q)."\n";
+
+
+
+}
+
 }
 
 
 
 
-
-
-
-
-
+cli_writeln("Тест '{$quizname}' успешно создан в курсе ID {$course->id}.");
 
 }
 
