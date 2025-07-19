@@ -26,9 +26,13 @@ require_once($CFG->dirroot . '/mod/page/lib.php');
 require_once($CFG->dirroot . '/mod/assign/lib.php');
 require_once($CFG->libdir . '/gradelib.php');
 require_once($CFG->dirroot . '/mod/quiz/lib.php');
+require_once($CFG->libdir.'/filelib.php');
+require_once($CFG->dirroot.'/mod/resource/lib.php');
 
 use core_course\external\course_module_create;
 
+// Установка пользователя и сессии
+\core\session\manager::init_empty_session();
 \core\session\manager::set_user(get_admin());
 
 $CFG->debug = DEBUG_ALL;
@@ -47,8 +51,9 @@ $sql = "
  join dxg_training t on t.training_id=l.training_id
  left join dxg_training_sections s on s.section_id=l.section_id
  left join dxg_training_blocks b on b.block_id=l.block_id
- where t.status=1
+ where t.status=1 and t.name='11111111'
  order by cname, sname, bname, l.sort
+ limit 20
 ";
 $result = $externaldb->query($sql);
 
@@ -163,23 +168,26 @@ while ($row = $result->fetch_assoc()) {
             $params = json_decode($lsn['params']);
 
         // echo serialize($params);
+	    $addfile = false;
 
-        // Контент самой страницы
+    	    // Контент самой страницы
             switch ($lsn['type']) {
                 case 4:
-                    $linkup = $params->link_up ? "col-12" : "col-md-4";
-                    $moduleinfo->content .= '<div class="' . $linkup . ' d-flex">
+            	    if ($params->type == 1) {
+            		$addfile = true;
+            	    } else {
+                	$linkup = $params->link_up ? "col-12" : "col-md-4";
+        		$moduleinfo->content .= '<div class="' . $linkup . ' d-flex">
     <a href="' . $params->link . '" class="btn btn-primary py-4 text-white text-center d-flex flex-column justify-content-center flex-grow-1">
       ' . $params->name . '
     </a>
-  </div>
-';
+  </div>';
+		    }
                     break;
                 case 3:
                     $moduleinfo->content .= '<div class="col-12 flex-column">
       ' . $params->text . '
-  </div>
-';
+  </div>';
                     break;
                 case 1:
                     $moduleinfo->content .= '
@@ -190,8 +198,7 @@ while ($row = $result->fetch_assoc()) {
     <a href="' . $params->url . '" class="btn btn-primary py-4 text-white text-center d-flex flex-column justify-content-center flex-grow-1">
       ' . $params->name . '
     </a>
-  </div>
-';
+  </div>';
                     break;
             }
         }
@@ -202,9 +209,10 @@ while ($row = $result->fetch_assoc()) {
             try {
                 $cm = add_moduleinfo($moduleinfo, $course);
 
-            // Получаем запись page.
+        	// Получаем запись page.
                 $page = $DB->get_record('page', ['id' => $cm->instance], '*', MUST_EXIST);
-            // Меняем displayoptions.
+
+	        // Меняем displayoptions.
                 $options = unserialize($page->displayoptions) ?: [];
                 $options['printlastmodified'] = 0;  // Отключаем "Последнее изменение".
                 $page->displayoptions = serialize($options);
@@ -215,7 +223,72 @@ while ($row = $result->fetch_assoc()) {
             } catch (Exception $e) {
                 echo "Ошибка при создании страницы: " . $e->getMessage() . "\n";
             }
+            
+	    if ($addfile) {
+try {
+    $context = context_course::instance($course->id);
+    
+    // Создаем область для черновика
+    $draftitemid = file_get_unused_draft_itemid();
+    $fs = get_file_storage();
+    
+    // Создаем файл в области черновика
+    $fileinfo = [
+        'contextid' => context_user::instance(get_admin()->id)->id,
+        'component' => 'user',
+        'filearea' => 'draft',
+        'itemid' => $draftitemid,
+        'filepath' => '/',
+        'filename' => $params->attach,
+    ];
+    
+    $baseurl = trim(file_get_contents('config.txt')); // читаем и убираем пробелы/переводы строки
+    $filecontent = download_file_content($baseurl . $lsn['id']);
+    
+    $fs->create_file_from_string($fileinfo, $filecontent);
+    
+    // Подготовка данных модуля
+    $moduleinfo = new stdClass();
+    $moduleinfo->course = $course->id;
+    $moduleinfo->section = $section->section ?? $existingsection->sectionnum;;
+    $moduleinfo->name = $params->title ?? 'Файл - '.$params->attach;
+    $moduleinfo->intro = '';
+    $moduleinfo->introformat = FORMAT_HTML;
+    $moduleinfo->visible = 1;
+    $moduleinfo->display = 0;
+    $moduleinfo->showdescription = 0;
+    $moduleinfo->showsize = 1;
+    $moduleinfo->showtype = 1;
+    $moduleinfo->files = $draftitemid; // Используем область черновика
+    
+    // Добавляем модуль
+    $moduleinfo->modulename = 'resource';
+    $moduleinfo->module = $DB->get_field('modules', 'id', ['name' => 'resource']);
+    $moduleinfo->instance = 0;
+    $moduleinfo->add = 'resource';
+    
+    $moduleinfo = add_moduleinfo($moduleinfo, $course);
+    
+    echo "Ресурс '{$moduleinfo->name}' успешно создан. ID: " . $moduleinfo->coursemodule . "\n";
+    
+    // Дополнительная проверка - убедимся, что файл прикрепился
+    $modcontext = context_module::instance($moduleinfo->coursemodule);
+    $files = $fs->get_area_files($modcontext->id, 'mod_resource', 'content', 0, 'id', false);
+    if (empty($files)) {
+        cli_error("Элемент создан, но файлы не прикрепились!");
+    } else {
+        echo "Файл успешно прикреплен: " . reset($files)->get_filename() . "\n";
+    }
+    $addedmodules++;
+    
+} catch (Exception $e) {
+    cli_error("Ошибка: " . $e->getMessage());
+}            
+            }
+            
+            
         }
+
 
 // Stage3: создаём домашку (assign)
 
@@ -240,7 +313,7 @@ while ($row = $result->fetch_assoc()) {
             $moduleinfo->introeditor = [
                 'text' => $task['text'],
 	        'format' => FORMAT_HTML,
-            ];
+	    ];
             $moduleinfo->introformat = FORMAT_HTML;
             $moduleinfo->duedate = 0;
             $moduleinfo->allowsubmissionsfromdate = 0;
