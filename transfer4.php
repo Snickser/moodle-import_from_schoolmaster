@@ -243,7 +243,7 @@ try {
     ];
     
     $baseurl = trim(file_get_contents('config.txt')); // читаем и убираем пробелы/переводы строки
-    $filecontent = download_file_content($baseurl . $lsn['id']);
+    $filecontent = download_file_content($baseurl . '/training/lesson/attach/' . $lsn['id']);
     
     $fs->create_file_from_string($fileinfo, $filecontent);
     
