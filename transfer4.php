@@ -379,7 +379,7 @@ try {
 
 // Stage4: создаём тест
 
-        $sql = "SELECT * FROM dxg_training_questions where test_id=$lessonid";
+        $sql = "SELECT * FROM dxg_training_questions where test_id=$lessonid limit 1";
         $qs = $externaldb->query($sql);
         if (!$qs) {
             die("Ошибка запроса: " . $externaldb->error);
@@ -461,6 +461,16 @@ try {
             } catch (Exception $e) {
 	        cli_writeln("Ошибка создания теста '{$lessonname}' в курсе ID {$course->id}.");
             }
+
+// Stage5: выгружаем вопросы теста в xml
+
+	    $output = shell_exec("/usr/bin/php test_xml_export.php {$lessonid}");
+	    echo $output;
+	    
+// Stage6: импортируем вопросы теста из xml
+	    
+	    $output = shell_exec("/usr/bin/php test_xml_import.php {$module->instance}");
+	    echo $output;
         }
     }
 }
