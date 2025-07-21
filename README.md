@@ -1,5 +1,5 @@
-# moodle-import_from_schoolmaster
-Набор скриптов для переноса данных их SchoolMaster в Moodle 5.0.
+# moodle import_from_schoolmaster
+Набор скриптов для переноса данных их SchoolMaster 3.7.6 в Moodle 5.0.
 
 Запускаются по очереди, требуют некоторой ручной настройки.
 config.txt содержит url оригинального сервера где скачиваются фaйлы в шаге 5.
