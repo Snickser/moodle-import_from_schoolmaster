@@ -21,7 +21,8 @@ $result = $extdb->query($sql);
 if ($result && $result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
         $shortname = trim($row['coursename']);
-        $url = 'https://site/images/training/'.rawurlencode(trim($row['cover']));
+        $baseurl = trim(file_get_contents('config.txt')); // читаем и убираем пробелы/переводы строки
+        $url = $baseurl . '/images/training/' . rawurlencode(trim($row['cover']));
 
         // Получаем курс по shortname
         $course = $DB->get_record('course', ['fullname' => $shortname]);

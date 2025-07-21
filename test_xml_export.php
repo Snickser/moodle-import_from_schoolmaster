@@ -241,7 +241,7 @@ foreach ($questions as $q) {
 
     $quiz->appendChild($questionNode);
     $addedCount++;
-    echo "➕ Вопрос {$q['quest_id']} (тип {$type}) добавлен\n";
+    echo "➕ Вопрос {$q['quest_id']} (тип {$type}) добавлен.\n";
 }
 
 $filename = 'quiz_questions.xml';

@@ -41,7 +41,7 @@ $CFG->debugdisplay = 1;
 // Подключение к вашей внешней БД (вместо moodle)
 $externaldb = new mysqli('localhost', 'root', '', 'shravanam');
 if ($externaldb->connect_error) {
-    die('Ошибка подключения к БД: ' . $externaldb->connect_error);
+    die('❌Ошибка подключения к БД: ' . $externaldb->connect_error);
 }
 
 // Выполняем запрос
@@ -51,14 +51,13 @@ $sql = "
  join dxg_training t on t.training_id=l.training_id
  left join dxg_training_sections s on s.section_id=l.section_id
  left join dxg_training_blocks b on b.block_id=l.block_id
- where t.status=1 and t.name='11111111'
+ where t.status=1 and t.name='11111111111'
  order by cname, sname, bname, l.sort
- limit 20
 ";
 $result = $externaldb->query($sql);
 
 if (!$result) {
-    die("Ошибка запроса: " . $externaldb->error);
+    die("❌ Ошибка запроса: " . $externaldb->error);
 }
 
 $addedsections = 0;
@@ -71,6 +70,7 @@ while ($row = $result->fetch_assoc()) {
     $sectionname = $row['sname'];
     $lessonname = $row['lname'];
     $lessonid = $row['lid'];
+    $lessonstatus = $row['status'];
 // $params = json_decode($row['params']);
 // $lessontype = $row['type'];
 // $createdate = $row['l.create_date'];
@@ -120,7 +120,7 @@ while ($row = $result->fetch_assoc()) {
             'name' => $fullname,
             'summary' => '',
             'summaryformat' => FORMAT_HTML,
-            'visible' => 1,
+            'visible' => $lessonstatus,
             ];
 
             course_update_section($course, $section, $sectiondata);
@@ -128,7 +128,7 @@ while ($row = $result->fetch_assoc()) {
             echo "Добавлена секция '{$fullname}' в курс '{$coursename}' (ID курса: {$course->id})\n";
             $addedsections++;
         } catch (Exception $e) {
-            echo "Ошибка при добавлении секции в курс '{$coursename}': " . $e->getMessage() . "\n";
+            echo "❌ Ошибка при добавлении секции в курс '{$coursename}': " . $e->getMessage() . "\n";
         }
     }
 
@@ -139,7 +139,7 @@ while ($row = $result->fetch_assoc()) {
         $lessons = $externaldb->query($sql);
 
         if (!$lessons) {
-            die("Ошибка запроса: " . $externaldb->error);
+            die("❌ Ошибка запроса: " . $externaldb->error);
         }
 
         // Создаем объект для добавления модуля страницы в курс
@@ -148,7 +148,7 @@ while ($row = $result->fetch_assoc()) {
         $moduleinfo->modulename = 'page';
         $moduleinfo->module = $DB->get_field('modules', 'id', ['name' => $moduleinfo->modulename]);
         $moduleinfo->section = $section->section ?? $existingsection->sectionnum;
-        $moduleinfo->visible = 1;
+        $moduleinfo->visible = $lessonstatus;
         $moduleinfo->name = $lessonname;
         $moduleinfo->displayoptions = [
     	    'printintro' => 0, // показывать описание
@@ -221,10 +221,11 @@ while ($row = $result->fetch_assoc()) {
                 echo "Страница '{$lessonname}' успешно создана. ID: {$cm->instance}\n";
 	        $addedmodules++;
             } catch (Exception $e) {
-                echo "Ошибка при создании страницы: " . $e->getMessage() . "\n";
+                echo "❌ Ошибка при создании страницы: " . $e->getMessage() . "\n";
             }
-            
-	    if ($addfile) {
+        }
+        
+        if ($addfile) {
 try {
     $context = context_course::instance($course->id);
     
@@ -245,6 +246,10 @@ try {
     $baseurl = trim(file_get_contents('config.txt')); // читаем и убираем пробелы/переводы строки
     $filecontent = download_file_content($baseurl . '/training/lesson/attach/' . $lsn['id']);
     
+    if (!$filecontent) {
+	echo "❌ Ошибка при скачивании файла {$lsn['id']}\n";
+    }
+        
     $fs->create_file_from_string($fileinfo, $filecontent);
     
     // Подготовка данных модуля
@@ -254,7 +259,7 @@ try {
     $moduleinfo->name = $params->title ?? 'Файл - '.$params->attach;
     $moduleinfo->intro = '';
     $moduleinfo->introformat = FORMAT_HTML;
-    $moduleinfo->visible = 1;
+    $moduleinfo->visible = $lessonstatus;
     $moduleinfo->display = 0;
     $moduleinfo->showdescription = 0;
     $moduleinfo->showsize = 1;
@@ -282,9 +287,8 @@ try {
     $addedmodules++;
     
 } catch (Exception $e) {
-    cli_error("Ошибка: " . $e->getMessage());
+    cli_error("❌ Ошибка: " . $e->getMessage());
 }            
-            }
             
             
         }
@@ -296,7 +300,7 @@ try {
         $rs = $externaldb->query($sql);
 
         if (!$rs) {
-            die("Ошибка запроса: " . $externaldb->error);
+            die("❌ Ошибка запроса: " . $externaldb->error);
         }
 
         $task = $rs->fetch_assoc();
@@ -308,7 +312,7 @@ try {
             $moduleinfo->module = 'assign';
             $moduleinfo->modulename = 'assign';
             $moduleinfo->section = $section->section ?? $existingsection->sectionnum;
-            $moduleinfo->visible = 1;
+            $moduleinfo->visible = $lessonstatus;
             $moduleinfo->name = 'Домашнє завдання - ' . $lessonname;
             $moduleinfo->introeditor = [
                 'text' => $task['text'],
@@ -372,7 +376,7 @@ try {
     	        cli_writeln("Задание '{$lessonname}' успешно создано в курсе с ID {$course->id}.");
 	        $addedmodules++;
     	    } catch (Exception $e) {
-    	        cli_writeln("Ошибка создания задания '{$lessonname}' в курсе с ID {$course->id}.");
+    	        cli_writeln("❌ Ошибка создания задания '{$lessonname}' в курсе с ID {$course->id}.");
     	    }
     	    
         }
@@ -382,7 +386,7 @@ try {
         $sql = "SELECT * FROM dxg_training_questions where test_id=$lessonid limit 1";
         $qs = $externaldb->query($sql);
         if (!$qs) {
-            die("Ошибка запроса: " . $externaldb->error);
+            die("❌ Ошибка запроса: " . $externaldb->error);
         }
 
         if ($qs->num_rows && $task['task_type'] > 1) {
@@ -392,7 +396,7 @@ try {
     	    $sql = "SELECT * FROM dxg_training_test where test_id=$lessonid limit 1";
 	    $qtest = $externaldb->query($sql);
     	    if (!$qtest) {
-        	die("Ошибка запроса: " . $externaldb->error);
+        	die("❌ Ошибка запроса: " . $externaldb->error);
     	    }
             $qparm = $qtest->fetch_assoc();
 
@@ -403,7 +407,7 @@ try {
             $moduleinfo->modulename = 'quiz';
             $moduleinfo->module = $DB->get_field('modules', 'id', ['name' => 'quiz'], MUST_EXIST);
             $moduleinfo->section = $section->section ?? $existingsection->sectionnum;
-            $moduleinfo->visible = 1;
+            $moduleinfo->visible = $lessonstatus;
             $moduleinfo->visibleoncoursepage = 1;
             $moduleinfo->course = $course->id;
             $moduleinfo->name = 'Тест - ' . $lessonname;
@@ -425,12 +429,12 @@ try {
             $moduleinfo->sumgrades = $qparm['finish']; // будет пересчитано
             $moduleinfo->preferredbehaviour = 'deferredfeedback';
 	    $moduleinfo->shuffleanswers = $qparm['is_random_questions'];
-            $moduleinfo->questionsperpage = $qparm['show_questions_count'];
+            $moduleinfo->questionsperpage = 1;
             $moduleinfo->quizpassword = '';
             $moduleinfo->browsersecurity = '-';
             $moduleinfo->attemptonlast = 1;
             $moduleinfo->showuserpicture = 1;
-
+	    
             $moduleinfo->completion = COMPLETION_TRACKING_AUTOMATIC; // Автоматическое отслеживание
             if ($qparm['finish']) {
         	$moduleinfo->completionpassgrade = 1;
@@ -455,20 +459,36 @@ try {
         	$updatequiz->reviewgeneralfeedback = 4352;
         	$updatequiz->reviewoverallfeedback = 4352;
         	$DB->update_record('quiz', $updatequiz);
+        	
+        	if ($qparm['is_random_questions']) {
+            	    $updatequiz = new stdClass();
+        	    $updatequiz->id = $quizid;
+        	    $updatequiz->shufflequestions = 1; 
+        	    $DB->update_record('quiz_sections', $updatequiz);
+        	}
+        	
+        	// Шаг 3. Создание корневой категории
 
-	        cli_writeln("Тест '{$lessonname}' успешно создан в курсе ID {$course->id}.");
+		$cm = get_coursemodule_from_instance('quiz', $quizid, $course->id, false, MUST_EXIST);
+		$context = context_module::instance($cm->id); // ✅ контекст модуля
+		question_get_default_category($context->id, true);
+        	question_get_top_category($context->id, true);
+
+	        cli_writeln("Тест '{$lessonname}' ID {$quizid} успешно создан в курсе ID {$course->id}.");
 	        $addedmodules++;
             } catch (Exception $e) {
-	        cli_writeln("Ошибка создания теста '{$lessonname}' в курсе ID {$course->id}.");
+	        cli_writeln("❌ Ошибка создания теста '{$lessonname}' в курсе ID {$course->id}.");
             }
 
 // Stage5: выгружаем вопросы теста в xml
 
+	    cli_writeln("Старт выгрузки вопросов ID {$lessonid}");
 	    $output = shell_exec("/usr/bin/php test_xml_export.php {$lessonid}");
 	    echo $output;
 	    
 // Stage6: импортируем вопросы теста из xml
 	    
+	    cli_writeln("Старт импорта вопросов ID {$module->instance}");
 	    $output = shell_exec("/usr/bin/php test_xml_import.php {$module->instance}");
 	    echo $output;
         }

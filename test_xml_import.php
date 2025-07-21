@@ -8,6 +8,7 @@ require_once($CFG->dirroot . '/question/format/xml/format.php');
 require_once($CFG->dirroot . '/question/editlib.php');
 require_once($CFG->libdir . '/clilib.php');
 require_once($CFG->dirroot . '/mod/quiz/lib.php');
+require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 
 global $DB;
 
@@ -28,8 +29,11 @@ if (!file_exists($xmlfile)) {
 function ensure_question_category_for_module($context, $courseid): stdClass {
     global $DB;
 
-    $coursecontext = context_course::instance($courseid);
-    $rootcategory = $DB->get_record_sql("SELECT * FROM {question_categories} WHERE contextid = ? AND parent = 0 ORDER BY id ASC LIMIT 1", [$coursecontext->id]);
+//    $coursecontext = context_course::instance($courseid);
+
+//    $rootcategory = $DB->get_record_sql("SELECT * FROM {question_categories} WHERE contextid = ? AND parent = 0 ORDER BY id ASC LIMIT 1", [$coursecontext->id]);
+
+    $rootcategory = $DB->get_record_sql("SELECT * FROM {question_categories} WHERE contextid = ? AND parent = 0 ORDER BY id ASC LIMIT 1", [$context->id]);
 
     if (!$rootcategory) {
         throw new Exception('Корневая категория курса не найдена');
@@ -92,20 +96,24 @@ if (!$format->importpostprocess()) {
 // === ДОБАВЛЯЕМ ВОПРОСЫ В ТЕСТ ===
 $quiz = $DB->get_record('quiz', ['id' => $quizid], '*', MUST_EXIST);
 $slot = 1 + (int)$DB->get_field_sql("SELECT MAX(slot) FROM {quiz_slots} WHERE quizid = ?", [$quiz->id]);
-$questions = $DB->get_records('question', ['category' => $category->id, 'parent' => 0], 'id ASC');
+// Получаем все questionid из этой категории
+$sql = "
+    SELECT q.id, q.name
+    FROM {question} q
+    JOIN {question_versions} qv ON qv.questionid = q.id
+    JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+    WHERE qbe.questioncategoryid = :catid AND q.parent = 0
+    ORDER BY q.id ASC
+";
+$params = ['catid' => $category->id];
+$questions = $DB->get_records_sql($sql, $params);
 
 foreach ($questions as $q) {
-    quiz_add_quiz_question($q->id, $quiz, $slot);
+    quiz_add_quiz_question($q->id, $quiz);
     $qname = $DB->get_field('question', 'name', ['id' => $q->id]);
     echo "📌 Добавлен вопрос '{$qname}' в слот $slot\n";
     $slot++;
 }
-
-
-
-
-
-
 
 echo "✅ Импорт завершён.\n";
 exit(0);
