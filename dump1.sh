@@ -1,7 +1,7 @@
 #!/bin/bash
 
 mysql shravanam -e "SELECT t.name fullname,t.name shortname,t.cat_id category
-FROM dxg_training t WHERE t.status=1;" > /tmp/training.csv
+FROM dxg_training t WHERE t.status=1 order by t.sort;" > /tmp/training.csv
 
 php -e decoder-html.php
 

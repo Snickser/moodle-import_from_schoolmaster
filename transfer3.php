@@ -26,9 +26,13 @@ try {
 
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $courseName = $row['name'];
-        $accessType = $row['access_type']; // можно использовать, если надо
+        $accessType = $row['access_type'];
 
-        $accessType = $accessType === 1 ? 0 : 1;
+	$password = null;
+        if ($accessType > 0){
+	    $accessType = 0;
+	    $password = '12345';
+	}
 
         // Находим курс в Moodle по имени fullname
         $courseStmt = $moodlePdo->prepare("SELECT id FROM mdl_course WHERE fullname = :fullname");
@@ -43,10 +47,11 @@ try {
             $enrolStmt->execute([':courseid' => $courseId]);
             $enrol = $enrolStmt->fetch(PDO::FETCH_ASSOC);
 
+
             if ($enrol) {
                 // Если есть — обновляем, включаем (status = 0)
-                $updateStmt = $moodlePdo->prepare("UPDATE mdl_enrol SET status = :accessType WHERE id = :id");
-                $updateStmt->execute([':id' => $enrol['id'], ':accessType' => $accessType]);
+                $updateStmt = $moodlePdo->prepare("UPDATE mdl_enrol SET status = :accessType, password = :password WHERE id = :id");
+                $updateStmt->execute([':id' => $enrol['id'], ':accessType' => $accessType, ':password' => $password]);
                 echo "Саморегистрация $accessType для курса '$courseName' (обновлено).\n";
             } else {
                 // Если нет — вставляем новую запись с enrol = 'self'

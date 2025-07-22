@@ -26,10 +26,15 @@ require_once($CFG->dirroot . '/mod/page/lib.php');
 require_once($CFG->dirroot . '/mod/assign/lib.php');
 require_once($CFG->libdir . '/gradelib.php');
 require_once($CFG->dirroot . '/mod/quiz/lib.php');
+require_once($CFG->dirroot . '/mod/quiz/classes/grade_calculator.php');
+require_once($CFG->dirroot . '/mod/quiz/lib.php');
 require_once($CFG->libdir.'/filelib.php');
 require_once($CFG->dirroot.'/mod/resource/lib.php');
+require_once($CFG->libdir . '/accesslib.php');
 
 use core_course\external\course_module_create;
+use mod_quiz\quiz_calculator;
+use mod_quiz\quiz_settings;
 
 // Установка пользователя и сессии
 \core\session\manager::init_empty_session();
@@ -51,8 +56,8 @@ $sql = "
  join dxg_training t on t.training_id=l.training_id
  left join dxg_training_sections s on s.section_id=l.section_id
  left join dxg_training_blocks b on b.block_id=l.block_id
- where t.status=1 and t.name='11111111111'
- order by cname, sname, bname, l.sort
+ where t.status=1 and t.name='11111'
+ order by t.sort, l.sort
 ";
 $result = $externaldb->query($sql);
 
@@ -322,21 +327,24 @@ try {
             $moduleinfo->duedate = 0;
             $moduleinfo->allowsubmissionsfromdate = 0;
             $moduleinfo->assignsubmission_onlinetext_enabled = 1;
+            $moduleinfo->assignsubmission_onlinetext_wordlimit = 0; // без лимита
+	    $moduleinfo->assignsubmission_onlinetext_wordlimit_enabled = 0;
+
 	    if($task['show_upload_file']) {
         	$moduleinfo->assignsubmission_file_enabled = 1;
+		$moduleinfo->assignsubmission_file_maxfiles = 1;
+		$moduleinfo->assignsubmission_file_maxfiles_enabled = 1;
 	    } else {
         	$moduleinfo->assignsubmission_file_enabled = 0;
 	    }
+
             // Обязательные поля assign
             $moduleinfo->submissiondrafts = 1;
-            $moduleinfo->requiresubmissionstatement = 1;
-            $moduleinfo->sendnotifications = 0;
-            $moduleinfo->sendlatenotifications = 0;
+            $moduleinfo->requiresubmissionstatement = 0;
             $moduleinfo->alwaysshowdescription = 1;
             $moduleinfo->teamsubmission = 0;
             $moduleinfo->requireallteammemberssubmit = 0;
             $moduleinfo->blindmarking = 0;
-            $moduleinfo->attemptreopenmethod = 'none';
             $moduleinfo->markingworkflow = 0;
             $moduleinfo->markingallocation = 0;
             $moduleinfo->cutoffdate = 0;
@@ -348,18 +356,18 @@ try {
             $moduleinfo->sendnotifications = 1;
             $moduleinfo->sendlatenotifications = 1;
             $moduleinfo->hidegrader = 1;
-
+	    
             $moduleinfo->groupmode = 0; // 0 — нет, 1 — отдельные группы, 2 — видимые группы
             $moduleinfo->grade = 10;
 	    $moduleinfo->gradepass = 10;
 	    $moduleinfo->completion = COMPLETION_TRACKING_AUTOMATIC; // Автоматическое отслеживание
+//	    $moduleinfo->completion = COMPLETION_TRACKING_MANUAL;
 	    
             if($task['check_type'] > 0) {
 	        $moduleinfo->completionusegrade = 1; // Учитывать оценку для выполнения
         	$moduleinfo->completionpass = 1;        // Требуется проход (0 - не обязательно)
-    	        $moduleinfo->completionpassgrade = 1;
+    	        $moduleinfo->completionpassgrade = 1;   // Проходной балл
     	    } else {
-//		$moduleinfo->completion = COMPLETION_TRACKING_MANUAL;
     		$moduleinfo->completionsubmit = 1;  // Требуется отправка работы для выполнения
 //		$moduleinfo->completionview = 1; // Завершить при просмотре
     	    }
@@ -375,13 +383,34 @@ try {
     	    
     	        cli_writeln("Задание '{$lessonname}' успешно создано в курсе с ID {$course->id}.");
 	        $addedmodules++;
+
+		if ($task['stop_lesson']) {
+// Ограничение доступа
+$availability = [
+    'op' => '&',
+    'showc' => [true],
+    'c' => [
+        [
+            'type' => 'completion',
+            'cm' => '-1',
+            'e' => 1,
+        ]
+    ]
+];
+// Устанавливаем ограничение
+$av = get_coursemodule_from_id(null, $moduleinfo->coursemodule, 0, false, MUST_EXIST);
+$av->availability = json_encode($availability);
+$DB->update_record('course_modules', $av);
+rebuild_course_cache($course->id, true);
+}
+
     	    } catch (Exception $e) {
     	        cli_writeln("❌ Ошибка создания задания '{$lessonname}' в курсе с ID {$course->id}.");
     	    }
-    	    
+
         }
 
-// Stage4: создаём тест
+// Stage4: создаём тест (quiz)
 
         $sql = "SELECT * FROM dxg_training_questions where test_id=$lessonid limit 1";
         $qs = $externaldb->query($sql);
@@ -419,14 +448,14 @@ try {
             $moduleinfo->timeopen = 0;
             $moduleinfo->timeclose = 0;
             $moduleinfo->timelimit = 0;
-            $moduleinfo->grade = $qparm['finish'];
+            $moduleinfo->grade = 1;
             $moduleinfo->gradepass = $qparm['finish'];
-            $moduleinfo->attempts = $qparm['test_try'];
+            $moduleinfo->attempts = $moduleinfo->attempts = $qparm['test_try'] > 10 ? 0 : $qparm['test_try'];
             $moduleinfo->completion = 1;
 
             $moduleinfo->overduehandling = 'autoabandon';
             $moduleinfo->grademethod = 1;
-            $moduleinfo->sumgrades = $qparm['finish']; // будет пересчитано
+            $moduleinfo->sumgrades = 1; // будет пересчитано
             $moduleinfo->preferredbehaviour = 'deferredfeedback';
 	    $moduleinfo->shuffleanswers = $qparm['is_random_questions'];
             $moduleinfo->questionsperpage = 1;
@@ -460,6 +489,7 @@ try {
         	$updatequiz->reviewoverallfeedback = 4352;
         	$DB->update_record('quiz', $updatequiz);
         	
+        	// Перемешать вопросы.
         	if ($qparm['is_random_questions']) {
             	    $updatequiz = new stdClass();
         	    $updatequiz->id = $quizid;
@@ -468,11 +498,29 @@ try {
         	}
         	
         	// Шаг 3. Создание корневой категории
-
 		$cm = get_coursemodule_from_instance('quiz', $quizid, $course->id, false, MUST_EXIST);
 		$context = context_module::instance($cm->id); // ✅ контекст модуля
 		question_get_default_category($context->id, true);
         	question_get_top_category($context->id, true);
+
+		if ($task['stop_lesson']) {
+// Ограничение доступа
+$availability = [
+    'op' => '&',
+    'showc' => [true],
+    'c' => [
+        [
+            'type' => 'completion',
+            'cm' => '-1',
+            'e' => 1,
+        ]
+    ]
+];
+// Устанавливаем ограничение
+$cm->availability = json_encode($availability);
+$DB->update_record('course_modules', $cm);
+rebuild_course_cache($course->id, true);
+}
 
 	        cli_writeln("Тест '{$lessonname}' ID {$quizid} успешно создан в курсе ID {$course->id}.");
 	        $addedmodules++;
@@ -491,6 +539,22 @@ try {
 	    cli_writeln("Старт импорта вопросов ID {$module->instance}");
 	    $output = shell_exec("/usr/bin/php test_xml_import.php {$module->instance}");
 	    echo $output;
+	    
+//$quizzes = $DB->get_records('quiz');
+//foreach ($quizzes as $quiz) {
+//$quizid = $quiz->id;
+	    
+	    // обновить grade и sumgrades
+            $quizobj = quiz_settings::create($quizid);
+	    $quizobj->get_grade_calculator()->recompute_quiz_sumgrades();
+            $updatequiz = new stdClass();
+            $updatequiz->id = $quizid;
+            $updatequiz->grade = $DB->get_field('quiz', 'sumgrades', ['id' => $quizid]);
+	    $DB->update_record('quiz', $updatequiz);
+
+//}
+    
+
         }
     }
 }

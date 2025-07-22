@@ -127,7 +127,7 @@ foreach ($questions as $q) {
             }
             $questionNode->appendChild($doc->createElement('single', $correctCount === 1 ? 'true' : 'false'));
             $questionNode->appendChild($doc->createElement('shuffleanswers', 'true'));
-            $questionNode->appendChild($doc->createElement('answernumbering', 'abc'));
+            $questionNode->appendChild($doc->createElement('answernumbering', 'none'));
 
             foreach ($q['options'] as $opt) {
                 $answer = $doc->createElement('answer');
