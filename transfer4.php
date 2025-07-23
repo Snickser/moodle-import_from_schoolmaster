@@ -46,7 +46,17 @@ $CFG->debugdisplay = 1;
 // Подключение к вашей внешней БД (вместо moodle)
 $externaldb = new mysqli('localhost', 'root', '', 'shravanam');
 if ($externaldb->connect_error) {
-    die('❌Ошибка подключения к БД: ' . $externaldb->connect_error);
+    die('❌ Ошибка подключения к БД: ' . $externaldb->connect_error);
+}
+
+if ($argv[1] === 'full') {
+    $where = '';
+    echo "Start FULL import !!\n";
+    sleep(10);
+} else if($argv[1]) {
+    $where = "and t.name='{$argv[1]}'";
+} else {
+    die("❌ Нет параметров. Укажиет full or \"course name\"\n");
 }
 
 // Выполняем запрос
@@ -56,7 +66,7 @@ $sql = "
  join dxg_training t on t.training_id=l.training_id
  left join dxg_training_sections s on s.section_id=l.section_id
  left join dxg_training_blocks b on b.block_id=l.block_id
- where t.status=1 and t.name='11111'
+ where t.status=1 {$where}
  order by t.sort, l.sort
 ";
 $result = $externaldb->query($sql);
@@ -66,8 +76,7 @@ if (!$result) {
 }
 
 $addedsections = 0;
-
-// Stage1: читаем все курсы
+$onetime = false;
 
 while ($row = $result->fetch_assoc()) {
     $coursename = $row['cname'];
@@ -81,7 +90,9 @@ while ($row = $result->fetch_assoc()) {
 // $createdate = $row['l.create_date'];
 
 
-// Create section name.
+// Stage1: создаём секцию 
+
+    // Create section name.
     $fullname = $sectionname ?? null;
     if ($blockname) {
         if ($fullname) {
@@ -96,11 +107,11 @@ while ($row = $result->fetch_assoc()) {
     // Ищем курс по названию
     $course = $DB->get_record('course', ['fullname' => $coursename], '*', IGNORE_MULTIPLE);
     if (!$course) {
-// echo "Курс не найден: $coursename\n";
+        // echo "Курс не найден: $coursename\n";
         continue;
     }
 
-// Проверка: существует ли секция с таким именем
+    // Проверка: существует ли секция с таким именем
     $modinfo = get_fast_modinfo($course);
     $sections = $modinfo->get_section_info_all();
 
@@ -108,18 +119,21 @@ while ($row = $result->fetch_assoc()) {
     foreach ($sections as $existingsection) {
         if ($existingsection->name === $fullname) {
 //            cli_writeln("Секция с именем '{$fullname}' уже существует (section ID: {$existingsection->id}). Пропускаем создание.");
-    // echo serialize($existingsection);
-            $sectionexists = true;
+//  echo serialize($existingsection);
+            $sectionexists = $existingsection->sectionnum;
             break;
             ;
         }
     }
     if (!$sectionexists) {
         try {
-    // Создаём новую секцию — просто указываем курс или его ID
+            // Создаём новую секцию — просто указываем курс или его ID
             $section = course_create_section($course->id);
 
-    // Обновляем имя и описание секции
+	    $sectionexists = $section->section;
+	    $onetime = true;
+            
+	    // Обновляем имя и описание секции
             $sectiondata = (object)[
             'id' => $section->section,
             'name' => $fullname,
@@ -159,8 +173,13 @@ while ($row = $result->fetch_assoc()) {
     	    'printintro' => 0, // показывать описание
     	    'printlastmodified' => 0, // не показывать "последнее изменение"
         ];
-        $moduleinfo->completion = COMPLETION_TRACKING_AUTOMATIC; // Автоматическое завершение
-        $moduleinfo->completionview = 1; // Завершить при просмотре
+
+if ($sectionexists == 1 && $onetime){
+    $onetime = false;
+        $moduleinfo->completion = COMPLETION_TRACKING_MANUAL; // Ручное завершение
+//        $moduleinfo->completion = COMPLETION_TRACKING_AUTOMATIC; // Автоматическое завершение
+//        $moduleinfo->completionview = 1; // Завершить при просмотре
+}
 
         // Содержимое страницы
         $moduleinfo->intro = '';  // обычно пусто для страницы
@@ -297,7 +316,6 @@ try {
             
             
         }
-
 
 // Stage3: создаём домашку (assign)
 
