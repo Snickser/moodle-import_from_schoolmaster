@@ -13,6 +13,7 @@ use core\output\template_renderer;
 // Установка пользователя и сессии
 \core\session\manager::init_empty_session();
 \core\session\manager::set_user(get_admin());
+force_current_language('uk'); 
 
 $filename = 'data-1753437909638.csv'; // Укажи имя или путь к CSV-файлу
 
@@ -50,11 +51,11 @@ if (!$instance = $DB->get_record('tool_certificate_templates', [
 
 
 $date = strtotime($data->issued_date);
-$date = userdate($date, '%d.%m.%Y');
+$date = userdate($date, '%d %B %Y');
 
-$template = \tool_certificate\template::instance(735);
+$template = \tool_certificate\template::instance(154);
 
-$coursid = 21;
+$coursid = 20;
 $userid = 3;
 
 $object = [
@@ -66,6 +67,9 @@ $object = [
 
 
 $template->issue_certificate($userid, false, $object, 'mod_coursecertificate', $coursid);
+
+
+echo "✅ Сертификат создан\n";
 
 
 die;

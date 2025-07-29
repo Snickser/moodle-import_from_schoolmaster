@@ -26,7 +26,7 @@ $pluginman = core_plugin_manager::instance();
 $installed_blocks = $pluginman->get_installed_plugins('block');
 
 // Курсы (кроме главной)
-$courses = $DB->get_records_select('course', 'id != ? AND visible = 1', [SITEID]);
+$courses = $DB->get_records_select('course', 'id != ?', [SITEID]);
 
 foreach ($courses as $course) {
     $context = context_course::instance($course->id);
@@ -64,9 +64,16 @@ foreach ($courses as $course) {
         $block->showinsubcontexts = 0;
         $block->pagetypepattern   = 'course-view-*';
         $block->subpagepattern    = '';
-        $block->defaultregion     = 'side-post'; // или 'side-pre'
+        $block->defaultregion     = 'side-pre';
         $block->defaultweight     = $blockweight;
-        $block->configdata        = base64_encode(serialize([]));
+        if ($blockname == 'studentstracker') {
+    	    $block->configdata        = base64_encode(serialize([ 'title' => 'Посещаемость',
+    		'excludeolder' => 30, 'text_footer' => 'Свяжитесь с ними!', 'text_header' => 'Отсутствуют более 7 дней.',
+    		'text_never' => 'не входил'
+    	     ]));
+        } else {
+    	    $block->configdata        = ''; //base64_encode(serialize([]));
+        }
         $block->timecreated       = time();
         $block->timemodified      = time();
 

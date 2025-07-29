@@ -32,6 +32,8 @@ try {
         if ($accessType > 0){
 	    $accessType = 0;
 	    $password = '12345';
+	    $customint1 = 1;
+	    $customtext1 = 'Привіт, {$a->firstname}, ти зарахований на курс {$a->coursename}.';
 	}
 
         // Находим курс в Moodle по имени fullname
@@ -50,8 +52,11 @@ try {
 
             if ($enrol) {
                 // Если есть — обновляем, включаем (status = 0)
-                $updateStmt = $moodlePdo->prepare("UPDATE mdl_enrol SET status = :accessType, password = :password WHERE id = :id");
-                $updateStmt->execute([':id' => $enrol['id'], ':accessType' => $accessType, ':password' => $password]);
+                $updateStmt = $moodlePdo->prepare("UPDATE mdl_enrol SET status = :accessType, password = :password,
+                customint1 = :customint1, customint4 = 3, customtext1 = :customtext1
+                 WHERE id = :id");
+                $updateStmt->execute([':id' => $enrol['id'], ':accessType' => $accessType, ':password' => $password,
+                ':customint1' => $customint1, ':customtext1' => $customtext1 ]); 
                 echo "Саморегистрация $accessType для курса '$courseName' (обновлено).\n";
             } else {
                 // Если нет — вставляем новую запись с enrol = 'self'

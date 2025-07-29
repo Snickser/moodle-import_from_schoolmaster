@@ -1,0 +1,9 @@
+use shravanam;
+
+-- список кураторов
+SELECT u.email, t.title 
+FROM dxg_training_curators_in_training c
+left join dxg_users u on c.curator_id = u.user_id
+left join dxg_training t on t.training_id = c.training_id
+where t.status = 1
+

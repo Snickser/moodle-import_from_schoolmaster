@@ -201,7 +201,7 @@ if ($sectionexists == 1 && $onetime){
             		$addfile = true;
             	    } else {
                 	$linkup = $params->link_up ? "col-12" : "col-md-4";
-        		$moduleinfo->content .= '<div class="' . $linkup . ' d-flex">
+        		$moduleinfo->content .= '<div class="' . $linkup . ' d-flex mt-3">
     <a href="' . $params->link . '" class="btn btn-primary py-4 text-white text-center d-flex flex-column justify-content-center flex-grow-1">
       ' . $params->name . '
     </a>
@@ -209,13 +209,13 @@ if ($sectionexists == 1 && $onetime){
 		    }
                     break;
                 case 3:
-                    $moduleinfo->content .= '<div class="col-12 flex-column">
+                    $moduleinfo->content .= '<div class="col-12 flex-column mt-3">
       ' . $params->text . '
   </div>';
                     break;
                 case 1:
                     $moduleinfo->content .= '
-    <div class="col-12 d-flex">
+    <div class="col-12 d-flex mt-2">
     <h5>' . $params->name . '</h5>
     </div>
     <div class="col-12 d-flex">
@@ -375,7 +375,7 @@ try {
             $moduleinfo->sendlatenotifications = 1;
             $moduleinfo->hidegrader = 1;
 	    
-            $moduleinfo->groupmode = 0; // 0 — нет, 1 — отдельные группы, 2 — видимые группы
+            $moduleinfo->groupmode = 1; // 0 — нет, 1 — отдельные группы, 2 — видимые группы
             $moduleinfo->grade = 10;
 	    $moduleinfo->gradepass = 10;
 	    $moduleinfo->completion = COMPLETION_TRACKING_AUTOMATIC; // Автоматическое отслеживание
@@ -489,7 +489,7 @@ rebuild_course_cache($course->id, true);
             $moduleinfo->completionpass = 1;
     	    $moduleinfo->completionusegrade = 1; // Учитывать оценку для выполнения
 
-            $moduleinfo->groupmode = 0; // 0 — нет, 1 — отдельные группы, 2 — видимые группы
+            $moduleinfo->groupmode = 1; // 0 — нет, 1 — отдельные группы, 2 — видимые группы
 
             try {
                 // === Добавляем с помощью course module API ===
