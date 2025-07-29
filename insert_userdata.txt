@@ -1,0 +1,44 @@
+
+CREATE TEMPORARY TABLE import_users ( idnumber VARCHAR(100), timecreated VARCHAR(100), middlename VARCHAR(255), password VARCHAR(255) );
+LOAD DATA LOCAL INFILE '/tmp/файл2.csv' INTO TABLE import_users FIELDS TERMINATED BY ','  ENCLOSED BY '"'  LINES TERMINATED BY '\n' IGNORE 1 LINES (idnumber,timecreated,middlename,password);
+UPDATE mdl_user u JOIN import_users i ON u.idnumber = i.idnumber SET u.firstaccess = i.timecreated, u.timecreated = i.timecreated, u.middlename = i.middlename, u.password = i.password, u.auth = 'email';
+
+
+CREATE TEMPORARY TABLE import_users ( idnumber VARCHAR(100), phone VARCHAR(255) );
+LOAD DATA LOCAL INFILE '/tmp/файл3.csv' INTO TABLE import_users FIELDS TERMINATED BY ','  ENCLOSED BY '"'  LINES TERMINATED BY '\n' IGNORE 1 LINES (idnumber,phone);
+UPDATE mdl_user u JOIN import_users i ON u.idnumber = i.idnumber SET u.phone2 = i.phone;
+
+
+
+
+
+CREATE TEMPORARY TABLE import_users ( idnumber VARCHAR(100), gender  VARCHAR(100), birthday VARCHAR(255) );
+LOAD DATA LOCAL INFILE '/tmp/файл6.csv' INTO TABLE import_users FIELDS TERMINATED BY ','  ENCLOSED BY '"'  LINES TERMINATED BY '\n' IGNORE 1 LINES (idnumber, gender, birthday);
+INSERT INTO mdl_user_info_data (userid, fieldid, data) SELECT u.id, 3, i.gender FROM import_users i JOIN mdl_user u ON u.idnumber = i.idnumber WHERE NOT EXISTS (     SELECT 1 FROM mdl_user_info_data d     WHERE d.userid = u.id AND d.fieldid = 3 );
+update moodle.mdl_user_info_data set data = 'Женский'  where data = 'f';
+update moodle.mdl_user_info_data set data = 'Мужской'  where data = 't';
+INSERT INTO mdl_user_info_data (userid, fieldid, data) SELECT u.id, 4, i.birthday FROM import_users i JOIN mdl_user u ON u.idnumber = i.idnumber WHERE NOT EXISTS (     SELECT 1 FROM mdl_user_info_data d     WHERE d.userid = u.id AND d.fieldid = 4 );
+
+
+
+-- Вставка custom_field_1 как fieldid = 1
+INSERT INTO moodle.mdl_user_info_data (userid, fieldid, data, dataformat)
+SELECT 
+    u.id AS userid,
+    1 AS fieldid,
+    d.custom_field_1 AS data,
+    0 AS dataformat
+FROM shravanam.dxg_custom_fields d
+JOIN moodle.mdl_user u ON u.idnumber = d.user_id
+WHERE d.custom_field_1 IS NOT NULL;
+
+-- Вставка custom_field_2 как fieldid = 2
+INSERT INTO moodle.mdl_user_info_data (userid, fieldid, data, dataformat)
+SELECT 
+    u.id AS userid,
+    2 AS fieldid,
+    d.custom_field_2 AS data,
+    0 AS dataformat
+FROM shravanam.dxg_custom_fields d
+JOIN moodle.mdl_user u ON u.idnumber = d.user_id
+WHERE d.custom_field_2 IS NOT NULL;
