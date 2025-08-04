@@ -89,7 +89,6 @@ while ($row = $result->fetch_assoc()) {
 // $lessontype = $row['type'];
 // $createdate = $row['l.create_date'];
 
-
 // Stage1: создаём секцию 
 
     // Create section name.
@@ -115,6 +114,8 @@ while ($row = $result->fetch_assoc()) {
     $modinfo = get_fast_modinfo($course);
     $sections = $modinfo->get_section_info_all();
 
+    $stop_lesson = false;
+
     $sectionexists = false;
     foreach ($sections as $existingsection) {
         if ($existingsection->name === $fullname) {
@@ -122,7 +123,6 @@ while ($row = $result->fetch_assoc()) {
 //  echo serialize($existingsection);
             $sectionexists = $existingsection->sectionnum;
             break;
-            ;
         }
     }
     if (!$sectionexists) {
@@ -132,7 +132,7 @@ while ($row = $result->fetch_assoc()) {
 
 	    $sectionexists = $section->section;
 	    $onetime = true;
-            
+
 	    // Обновляем имя и описание секции
             $sectiondata = (object)[
             'id' => $section->section,
@@ -403,6 +403,7 @@ try {
 	        $addedmodules++;
 
 		if ($task['stop_lesson']) {
+		    $stop_lesson = true;
 // Ограничение доступа
 $availability = [
     'op' => '&',
@@ -522,6 +523,7 @@ rebuild_course_cache($course->id, true);
         	question_get_top_category($context->id, true);
 
 		if ($task['stop_lesson']) {
+		    $stop_lesson = true;
 // Ограничение доступа
 $availability = [
     'op' => '&',
@@ -569,11 +571,45 @@ rebuild_course_cache($course->id, true);
             $updatequiz->id = $quizid;
             $updatequiz->grade = $DB->get_field('quiz', 'sumgrades', ['id' => $quizid]);
 	    $DB->update_record('quiz', $updatequiz);
-
 //}
-    
-
         }
+
+
+	if ($stop_lesson && $section) {
+	    $sectionnum = $section->section ?? $existingsection->sectionnum;
+	    echo "  Установка ограничений доступа на секцию\n";
+
+// Ограничение доступа
+$availability = [
+    'op' => '&',
+    'showc' => [true],
+    'c' => [
+        [
+            'type' => 'completion',
+            'cm' => '-1',
+            'e' => 1,
+        ]
+    ]
+];
+	    $availabilityjson = json_encode($availability);
+
+            $sectiondata = (object)[
+        	'id' => $sectionnum,
+        	'availability' => $availabilityjson,
+            ];
+
+
+// Устанавливаем ограничение
+if ($section) {
+    course_update_section($course, $section, $sectiondata);
+}
+rebuild_course_cache($course->id, true);
+
+
+	}
+
+
+
     }
 }
 

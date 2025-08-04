@@ -184,11 +184,13 @@ foreach ($data as $id => $items) {
     		    $items[] = $newdata;
 		} else {
             	    $bgfilepath = 'bgdefault2.png';
+                    if($id != 150){
             	    $row = $data[150][1];
             	    $newdata = $data[150][3];
             	    $newdata->certname = $olddata;
             	    $newdata->id = $id;
             	    $items[] = $newdata;
+}
             	}
             	$row->certname = $olddata;
         	$row->id = $id;
