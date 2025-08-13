@@ -7,3 +7,13 @@ left join dxg_users u on c.curator_id = u.user_id
 left join dxg_training t on t.training_id = c.training_id
 where t.status = 1
 
+
+-- когорты
+CREATE TEMPORARY TABLE temp_cohort_users (   group_title VARCHAR(255),   email VARCHAR(255),   timecreate VARCHAR(255) );
+LOAD DATA INFILE '/tmp/cohort-users.csv' INTO TABLE temp_cohort_users FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n';
+
+INSERT INTO mdl_cohort_members (cohortid, userid, timeadded)
+SELECT c.id, u.id, t.timecreate
+FROM tmp_cohort_import t
+JOIN mdl_user u ON u.email = t.email
+JOIN mdl_cohort c ON c.name = t.group_title;

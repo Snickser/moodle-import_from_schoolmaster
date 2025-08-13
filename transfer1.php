@@ -29,7 +29,7 @@ try {
         $updateStmt->execute([
             ':content' => $decodedContent,
             ':sdate' => $sdate,
-            ':edate' => $edate,
+            ':edate' => ($edate>(time()+86400*720) ? 0 : $edate),
             ':id' => $sourceId
         ]);
     }
