@@ -220,7 +220,7 @@ if ($sectionexists == 1 && $onetime){
     </div>
     <div class="col-12 d-flex">
     <a href="' . $params->url . '" class="btn btn-primary py-4 text-white text-center d-flex flex-column justify-content-center flex-grow-1">
-      ' . $params->name . '
+      ' . (empty($params->name) ? 'Лекция' : $params->name) . '
     </a>
   </div>';
                     break;
